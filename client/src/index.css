@@ -1,0 +1,19 @@
+* {
+  margin: 0px;
+  padding: 0px;
+  }
+
+body {
+  margin-top: 0px;
+  padding-top: 0px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.custom-background {
+  background: url("./assets/background.png");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: scroll;
+  background-size: cover;
+}
