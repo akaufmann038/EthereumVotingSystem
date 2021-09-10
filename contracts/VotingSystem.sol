@@ -1,34 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.21 <0.7.0;
 
-// add current election description
+// to change: use a list of structs for the candidate to replace all the mappings
 
 contract VotingSystem {
+    struct Candidate {
+        string name;
+        address addr;
+        uint256 votes;
+    }
 
-    // addresses of all candidates
-    address[] private candidates;
+    // keep track of which accounts have voted in current election
+    mapping(address => bool) private hasVoted;
+    // list of voter addresses
+    address[] private voters;
 
-    // mapping of candidate id's to bool representing their existence
-    mapping(address => bool) private candidatesExist;
+    // list of all candidates
+    Candidate[] private candidates;
+
+    // represents whether voting has started for current election
+    bool private electionStarted;
+
+    // description of the current election
+    string private electionDescription;
+
+    // owner of contract, always deploying account
+    address private owner;
 
     // mapping of addresses to bool showing moderator status
     mapping(address => bool) private moderators;
 
-    // candidate address to name
-    mapping(address => string) private candidateNames;
-
-    // candidate address to number of votes
-    mapping(address => uint256) private candidateVotes;
-
-    // addresses of people who have voted
-    mapping(address => bool) private hasVoted;
-
-    // if false, voting has not begun and new candidates can run
-    // if true, voting has begun, people can vote, and new candidates can not run
-    bool public electionHasStarted = false;
-
-    // owner of contract, always deploying account
-    address private owner;
 
     constructor() public {
         // set owner to the account which deployed the contract
@@ -36,6 +37,31 @@ contract VotingSystem {
 
         // owner is automatically a moderator
         moderators[msg.sender] = true;
+
+        // set placeholder for election description
+        electionDescription = "Description placeholder";
+    }
+
+    // sets the description of the election
+    function setElectionDescription(string memory description) public {
+        require(moderators[msg.sender] == true, "Only a moderator can set the election description!");
+
+        electionDescription = description;
+    }
+
+    // resets the election
+    function resetElection(string memory newDescription) public {
+        require(moderators[msg.sender] == true, "Only a moderator can reset an election!");
+
+        // reset all voters
+        for (uint i = 0; i < hasVoted.length; i++) {
+            hasVoted[voters[i]] = false;
+        }
+
+        delete candidates;
+        electionDescription = newDescription;
+
+        electionStarted = false;
     }
 
     // returns true if function caller is a moderator and false if not
@@ -60,29 +86,28 @@ contract VotingSystem {
         require(electionHasStarted == false);
 
         // require that candidate does not already exist
-        require(
-            candidatesExist[msg.sender] == false,
-            "Candidate already exists!"
-        );
+        bool memory doesExist = false;
+        for (uint i = 0; i < candidates.length; i++) {
+            if (candidates[i].addr == msg.sender) {
+                doesExist = true;
+            }
+        }
+
+        require(doesExist == false, "Candidate already exists!");
 
         // add candidate information to contract state
-        candidates.push(msg.sender);
-        candidatesExist[msg.sender] = true;
-        candidateNames[msg.sender] = newCandidateName;
-        candidateVotes[msg.sender] = 0;
+        candidates.push(Candidate(newCandidateName, msg.sender, 0));
     }
 
     function unRunCandidate() public {
         candidates.pop();
-        candidatesExist[msg.sender] = false;
-        candidateNames[msg.sender] = "";
-        candidateVotes[msg.sender] = 0;
     }
 
     function getCandidates() public view returns (address[] memory) {
         return candidates;
     }
 
+    // LEFT OFF HERE
     // returns candidate name given candidate address
     function getCandidateName(address candidateAddress)
         public
@@ -197,3 +222,32 @@ contract VotingSystem {
         return winners;
     }
 }
+
+
+// // addresses of all candidates
+    // address[] private candidates;
+
+    // // mapping of candidate id's to bool representing their existence
+    // mapping(address => bool) private candidatesExist;
+
+    // // mapping of addresses to bool showing moderator status
+    // mapping(address => bool) private moderators;
+
+    // // candidate address to name
+    // mapping(address => string) private candidateNames;
+
+    // // candidate address to number of votes
+    // mapping(address => uint256) private candidateVotes;
+
+    // // addresses of people who have voted
+    // mapping(address => bool) private hasVoted;
+
+    // // if false, voting has not begun and new candidates can run
+    // // if true, voting has begun, people can vote, and new candidates can not run
+    // bool public electionHasStarted = false;
+
+    // // description of the current election
+    // string electionDescription;
+
+    // // owner of contract, always deploying account
+    // address private owner;
