@@ -19,17 +19,16 @@ contract VotingSystem {
     Candidate[] private candidates;
 
     // represents whether voting has started for current election
-    bool private electionStarted;
+    bool public electionStarted;
 
     // description of the current election
-    string private electionDescription;
+    string public electionDescription;
 
     // owner of contract, always deploying account
     address private owner;
 
     // mapping of addresses to bool showing moderator status
     mapping(address => bool) private moderators;
-
 
     constructor() public {
         // set owner to the account which deployed the contract
@@ -44,21 +43,28 @@ contract VotingSystem {
 
     // sets the description of the election
     function setElectionDescription(string memory description) public {
-        require(moderators[msg.sender] == true, "Only a moderator can set the election description!");
+        require(
+            moderators[msg.sender] == true,
+            "Only a moderator can set the election description!"
+        );
 
         electionDescription = description;
     }
 
     // resets the election
     function resetElection(string memory newDescription) public {
-        require(moderators[msg.sender] == true, "Only a moderator can reset an election!");
+        require(
+            moderators[msg.sender] == true,
+            "Only a moderator can reset an election!"
+        );
 
         // reset all voters
-        for (uint i = 0; i < hasVoted.length; i++) {
+        for (uint256 i = 0; i < voters.length; i++) {
             hasVoted[voters[i]] = false;
         }
 
         delete candidates;
+        delete voters;
         electionDescription = newDescription;
 
         electionStarted = false;
@@ -83,17 +89,17 @@ contract VotingSystem {
     // add candidate to candidates list
     function runCandidate(string memory newCandidateName) public {
         // require that election has not started
-        require(electionHasStarted == false);
+        require(electionStarted == false);
 
         // require that candidate does not already exist
-        bool memory doesExist = false;
-        for (uint i = 0; i < candidates.length; i++) {
+        bool doesExist = false;
+        for (uint256 i = 0; i < candidates.length; i++) {
             if (candidates[i].addr == msg.sender) {
                 doesExist = true;
             }
         }
 
-        require(doesExist == false, "Candidate already exists!");
+        require(doesExist == false, "Candidate address already exists!");
 
         // add candidate information to contract state
         candidates.push(Candidate(newCandidateName, msg.sender, 0));
@@ -104,10 +110,15 @@ contract VotingSystem {
     }
 
     function getCandidates() public view returns (address[] memory) {
-        return candidates;
+        address[] memory candidateAddresses = new address[](candidates.length);
+
+        for (uint i = 0; i < candidates.length; i++) {
+            candidateAddresses[i] = candidates[i].addr;
+        }
+
+        return candidateAddresses;
     }
 
-    // LEFT OFF HERE
     // returns candidate name given candidate address
     function getCandidateName(address candidateAddress)
         public
@@ -115,12 +126,13 @@ contract VotingSystem {
         returns (string memory)
     {
         // verify that candidate exists
-        require(
-            candidatesExist[candidateAddress] == true,
-            "Candidate does not exist!"
-        );
+        for (uint256 i = 0; i < candidates.length; i++) {
+            if (candidates[i].addr == candidateAddress) {
+                return candidates[i].name;
+            }
+        }
 
-        return candidateNames[candidateAddress];
+        revert("Candidate does not exist!");
     }
 
     // returns the number of votes of a given candidate
@@ -130,36 +142,43 @@ contract VotingSystem {
         returns (uint256)
     {
         // verify that candidate exists
-        require(
-            candidatesExist[candidateAddress] == true,
-            "Candidate does not exist!"
-        );
+        for (uint256 i = 0; i < candidates.length; i++) {
+            if (candidates[i].addr == candidateAddress) {
+                return candidates[i].votes;
+            }
+        }
 
-        return candidateVotes[candidateAddress];
+        revert("Candidate does not exist!");
     }
 
     // vote for a candidate
     function vote(address candidateAddress) public {
         // verify that voting has started
-        require(electionHasStarted == true, "Voting has not started!");
-
-        // verify that candidate to vote for exists
-        require(
-            candidatesExist[candidateAddress] == true,
-            "Candidate does not exist!"
-        );
+        require(electionStarted == true, "Voting has not started!");
 
         // verify that voter has not already voted
         require(hasVoted[msg.sender] == false, "Client has already voted!");
 
-        candidateVotes[candidateAddress] += 1;
-        hasVoted[msg.sender] = true;
+        // verify that candidate exists
+        for (uint256 i = 0; i < candidates.length; i++) {
+            if (candidates[i].addr == candidateAddress) {
+                // incrementing candidate votes
+                Candidate storage currentCandidate = candidates[i];
+                currentCandidate.votes += 1;
+
+                // record that calling account has voted
+                hasVoted[msg.sender] = true;
+                voters.push(msg.sender);
+            }
+        }
+
+        revert("Candidate does not exist!");
     }
 
     // start voting
     function beginElection() public {
         // verify that election has not already started
-        require(electionHasStarted == false, "Election has already started!");
+        require(electionStarted == false, "Election has already started!");
 
         // verify that caller of function is a moderator
         require(
@@ -172,13 +191,13 @@ contract VotingSystem {
             "There must be at least two candidates!"
         );
 
-        electionHasStarted = true;
+        electionStarted = true;
     }
 
     // end voting
     function endElection() public returns (address[] memory) {
         // verify that election has started
-        require(electionHasStarted == true, "Election has started!");
+        require(electionStarted == true, "Election has started!");
 
         // verify that caller of function is a moderator
         require(
@@ -186,22 +205,26 @@ contract VotingSystem {
             "Function caller is not a moderator!"
         );
 
-        electionHasStarted = false;
+        // find the indicies of the winners in candidates
+        // create a list
+
+        electionStarted = false;
 
         address[] memory winners = new address[](candidates.length);
-        winners[0] = candidates[0];
+        winners[0] = candidates[0].addr;
 
         uint256 winnersSize = 1;
 
         uint256 winnerIdx = 0;
 
+        uint256 winningVotes = candidates[0].votes;
+
         // first find winner
         for (uint256 i = 0; i < candidates.length; i++) {
-            address current = candidates[i];
-
-            if (candidateVotes[current] > candidateVotes[winners[0]]) {
-                winners[0] = current;
+            if (candidates[i].votes > winningVotes) {
+                winners[0] = candidates[i].addr;
                 winnerIdx = i;
+                winningVotes = candidates[i].votes;
             }
         }
 
@@ -210,11 +233,8 @@ contract VotingSystem {
             // if the index is not the same as the winning index
             // and the number of votes for the current candidate is the same
             // as the winning number of votes...
-            if (
-                i != winnerIdx &&
-                candidateVotes[candidates[i]] == candidateVotes[winners[0]]
-            ) {
-                winners[winnersSize] = candidates[i];
+            if (i != winnerIdx && candidates[i].votes == winningVotes) {
+                winners[winnersSize] = candidates[i].addr;
                 winnersSize += 1;
             }
         }
@@ -223,31 +243,30 @@ contract VotingSystem {
     }
 }
 
-
 // // addresses of all candidates
-    // address[] private candidates;
+// address[] private candidates;
 
-    // // mapping of candidate id's to bool representing their existence
-    // mapping(address => bool) private candidatesExist;
+// // mapping of candidate id's to bool representing their existence
+// mapping(address => bool) private candidatesExist;
 
-    // // mapping of addresses to bool showing moderator status
-    // mapping(address => bool) private moderators;
+// // mapping of addresses to bool showing moderator status
+// mapping(address => bool) private moderators;
 
-    // // candidate address to name
-    // mapping(address => string) private candidateNames;
+// // candidate address to name
+// mapping(address => string) private candidateNames;
 
-    // // candidate address to number of votes
-    // mapping(address => uint256) private candidateVotes;
+// // candidate address to number of votes
+// mapping(address => uint256) private candidateVotes;
 
-    // // addresses of people who have voted
-    // mapping(address => bool) private hasVoted;
+// // addresses of people who have voted
+// mapping(address => bool) private hasVoted;
 
-    // // if false, voting has not begun and new candidates can run
-    // // if true, voting has begun, people can vote, and new candidates can not run
-    // bool public electionHasStarted = false;
+// // if false, voting has not begun and new candidates can run
+// // if true, voting has begun, people can vote, and new candidates can not run
+// bool public electionHasStarted = false;
 
-    // // description of the current election
-    // string electionDescription;
+// // description of the current election
+// string electionDescription;
 
-    // // owner of contract, always deploying account
-    // address private owner;
+// // owner of contract, always deploying account
+// address private owner;

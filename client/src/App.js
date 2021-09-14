@@ -7,13 +7,17 @@ import "./App.css";
 const App = () => {
   const [candidates, setCandidates] = useState([])
   const [electionStarted, setElectionStarted] = useState()
+  const [electionDescription, setElectionDescription] = useState()
+  const [isModerator, setIsModerator] = useState()
   const [blockchain, setBlockchain] = useState(null)
   const [stateWeb3, setStateWeb3] = useState(null)
 
   // fetches all data from blockchain and updates state
   const getCandidateData = async () => {
     const candidates = await blockchain.contract.methods.getCandidates().call()
-    const electionStarted = await blockchain.contract.methods.electionHasStarted().call()
+    const electionStarted = await blockchain.contract.methods.electionStarted().call()
+    const electionDescription = await blockchain.contract.methods.electionDescription().call()
+    const isModerator = await blockchain.contract.methods.isModerator().call()
 
     const candidateData = candidates.map(async element => {
       const name = await blockchain.contract.methods.getCandidateName(element).call()
@@ -26,6 +30,8 @@ const App = () => {
 
     Promise.all(candidateData).then(output => setCandidates(output))
     setElectionStarted(electionStarted)
+    setElectionDescription(electionDescription)
+    setIsModerator(isModerator)
   }
 
   //injects web3 provider and gets blockchain data
@@ -45,7 +51,9 @@ const App = () => {
 
         try {
           const candidates = await instance.methods.getCandidates().call()
-          const electionStarted = await instance.methods.electionHasStarted().call()
+          const electionStarted = await instance.methods.electionStarted().call()
+          const electionDescription = await instance.methods.electionDescription().call()
+          const isModerator = await instance.methods.isModerator().call()
 
           // get info for every candidate and set it to state
           const candidateData = candidates.map(async element => {
@@ -61,6 +69,12 @@ const App = () => {
 
           // set electionStarted state
           setElectionStarted(electionStarted)
+
+          // set electionDescription
+          setElectionDescription(electionDescription)
+
+          // set isModerator
+          setIsModerator(isModerator)
 
           // set blockchain data state
           setBlockchain({
@@ -78,14 +92,6 @@ const App = () => {
     getProvider()
 
   }, [stateWeb3])
-
-
-
-  const onUnRunCandidate = async () => {
-    await blockchain.contract.methods.unRunCandidate().send({ from: blockchain.account })
-
-    getCandidateData()
-  }
 
   // injects web3 provider
   const getProvider = async () => {
@@ -114,7 +120,7 @@ const App = () => {
               which will be shown on this page. If the election has not yet started, use the interface below
               to run in the election. If voting has started, vote for your preferred candidate!
               If you are a moderator, you will be able to
-              start voting and end voting.
+              start and end voting and reset the election with a new description.
             </h5>
           </div>
         </div>
@@ -133,6 +139,11 @@ const App = () => {
                     <h1>The election has not started!</h1>
                   </div>
                 </div>
+                <div className="row">
+                  <div className="col text-center">
+                    <h3 className="lead">{electionDescription}</h3>
+                  </div>
+                </div>
                 <div className="row mt-3">
                   <div className="col d-flex justify-content-center">
                     <InputName blockchain={blockchain} getCandidateData={getCandidateData} />
@@ -142,10 +153,17 @@ const App = () => {
             }
 
             <div className="row mt-5">
-              {candidates.map(element => {
+              {candidates.map((element, key) => {
                 return (
-                  <div className="col" key={element.name}>
-                    <p>Candidate Name: {element.name}</p>
+                  <div className="col" key={key}>
+                    <div className="card text-center">
+                      <div className="card-header">
+                        Candidate {key}
+                      </div>
+                      <div className="card-body">
+                        <h5>{element.name}</h5>
+                      </div>
+                    </div>
                   </div>
                 )
               })}
@@ -198,8 +216,36 @@ const InputName = ({ blockchain, getCandidateData }) => {
 
   return (
     <form onSubmit={(e) => onRunCandidate(e)}>
-      <input value={inputName} type="text" placeholder="Candidate Name" onChange={handleChange} required />
-      <button type="submit">RUN</button>
+      <input className="form-control" value={inputName} type="text" placeholder="Candidate Name" onChange={handleChange} required />
+      <button type="submit" className="btn btn-primary form-control">Run Candidate</button>
+    </form>
+  )
+}
+
+const InputDescription = ({ blockchain, getCandidateData }) => {
+  const [description, setDescription] = useState("")
+
+  // run a candidate
+  const onResetElection = async (e) => {
+    e.preventDefault()
+    try {
+      await blockchain.contract.methods.resetElection(description).send({ from: blockchain.account })
+    } catch (error) {
+      console.log(error)
+    }
+
+    setDescription("")
+    getCandidateData()
+  }
+
+  const handleChange = (e) => {
+    setDescription(e.target.value)
+  }
+
+  return (
+    <form onSubmit={(e) => onResetElection(e)}>
+      <input className="form-control" value={description} type="text" placeholder="New Election Description" onChange={handleChange} required />
+      <button type="submit" className="btn btn-primary form-control">Reset Election</button>
     </form>
   )
 }
