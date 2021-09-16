@@ -25,17 +25,11 @@ contract VotingSystem {
     string public electionDescription;
 
     // owner of contract, always deploying account
-    address private owner;
-
-    // mapping of addresses to bool showing moderator status
-    mapping(address => bool) private moderators;
+    address public owner;
 
     constructor() public {
         // set owner to the account which deployed the contract
         owner = msg.sender;
-
-        // owner is automatically a moderator
-        moderators[msg.sender] = true;
 
         // set placeholder for election description
         electionDescription = "Description placeholder";
@@ -44,7 +38,7 @@ contract VotingSystem {
     // sets the description of the election
     function setElectionDescription(string memory description) public {
         require(
-            moderators[msg.sender] == true,
+            msg.sender == owner,
             "Only a moderator can set the election description!"
         );
 
@@ -54,7 +48,7 @@ contract VotingSystem {
     // resets the election
     function resetElection(string memory newDescription) public {
         require(
-            moderators[msg.sender] == true,
+            msg.sender == owner,
             "Only a moderator can reset an election!"
         );
 
@@ -68,22 +62,6 @@ contract VotingSystem {
         electionDescription = newDescription;
 
         electionStarted = false;
-    }
-
-    // returns true if function caller is a moderator and false if not
-    function isModerator() public view returns (bool) {
-        return moderators[msg.sender];
-    }
-
-    // approve a new given moderator
-    function approveModerator(address newModerator) public {
-        // function can only be called by owner
-        require(
-            msg.sender == owner,
-            "Message can only be called by smart contract owner!"
-        );
-
-        moderators[newModerator] = true;
     }
 
     // add candidate to candidates list
@@ -182,7 +160,7 @@ contract VotingSystem {
 
         // verify that caller of function is a moderator
         require(
-            moderators[msg.sender] == true,
+            msg.sender == owner,
             "Function caller is not a moderator!"
         );
 
@@ -201,7 +179,7 @@ contract VotingSystem {
 
         // verify that caller of function is a moderator
         require(
-            moderators[msg.sender] == true,
+            msg.sender == owner,
             "Function caller is not a moderator!"
         );
 
